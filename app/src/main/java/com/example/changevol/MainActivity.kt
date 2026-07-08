@@ -44,10 +44,14 @@ class MainActivity : ComponentActivity() {
 
         audio = getSystemService(AUDIO_SERVICE) as AudioManager
 
+        // текущая громкость в процентах (0f..1f)
+        val currentPercent = getCurrentVolumePercent()
+
         setContent {
             MaterialTheme {
                 Surface(color = Color(0xFF121212)) {
                     VolumeScreen(
+                        currentPercent = currentPercent,
                         onSetVolume = { percent ->
                             setVolume(percent)
                             finish()
@@ -56,6 +60,13 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    private fun getCurrentVolumePercent(): Float {
+        val max = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+        val current = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
+        if (max == 0) return 0f
+        return current.toFloat() / max.toFloat()
     }
 
     private fun setVolume(percent: Float) {
@@ -71,7 +82,14 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun VolumeScreen(onSetVolume: (Float) -> Unit) {
+fun VolumeScreen(currentPercent: Float, onSetVolume: (Float) -> Unit) {
+
+    // значения кнопок в процентах
+    val buttonValues = listOf(30, 40, 50, 60, 75)
+
+    // находим ближайшее значение к текущей громкости
+    val currentPercentInt = (currentPercent * 100).toInt()
+    val closestValue = buttonValues.minByOrNull { kotlin.math.abs(it - currentPercentInt) }
 
     Box(
         modifier = Modifier.fillMaxSize(),
@@ -80,15 +98,15 @@ fun VolumeScreen(onSetVolume: (Float) -> Unit) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(250.dp)          // <- вот тут регулируешь высоту кнопок
+                .height(250.dp)
                 .padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            VolumeButton("30", listOf(Color(0xFF66BB6A), Color(0xFF388E3C)), Modifier.weight(1f), onSetVolume)
-            VolumeButton("40", listOf(Color(0xFF4CAF50), Color(0xFF2E7D32)), Modifier.weight(1f), onSetVolume)
-            VolumeButton("50", listOf(Color(0xFF42A5F5), Color(0xFF1565C0)), Modifier.weight(1f), onSetVolume)
-            VolumeButton("60", listOf(Color(0xFFEC407A), Color(0xFFAD1457)), Modifier.weight(1f), onSetVolume)
-            VolumeButton("75", listOf(Color(0xFFEF5350), Color(0xFFB71C1C)), Modifier.weight(1f), onSetVolume)
+            VolumeButton("30", listOf(Color(0xFF15A4A4), Color(0xFF0DA8A8)), Modifier.weight(1f), 30 == closestValue, onSetVolume)
+            VolumeButton("40", listOf(Color(0xFF4CAF50), Color(0xFF40A945)), Modifier.weight(1f), 40 == closestValue, onSetVolume)
+            VolumeButton("50", listOf(Color(0xFF42A5F5), Color(0xFF3287E8)), Modifier.weight(1f), 50 == closestValue, onSetVolume)
+            VolumeButton("60", listOf(Color(0xFFCE6E47), Color(0xFFCE6E47)), Modifier.weight(1f), 60 == closestValue, onSetVolume)
+            VolumeButton("75", listOf(Color(0xFFEF5350), Color(0xFFE84545)), Modifier.weight(1f), 75 == closestValue, onSetVolume)
         }
     }
 }
@@ -98,6 +116,7 @@ fun VolumeButton(
     text: String,
     gradientColors: List<Color>,
     modifier: Modifier = Modifier,
+    isActive: Boolean = false,
     onClick: (Float) -> Unit
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -112,6 +131,13 @@ fun VolumeButton(
         label = "buttonElevation"
     )
 
+    // если кнопка активна (ближайшая к текущей громкости) - серый градиент вместо обычного
+    val colors = if (isActive) {
+        listOf(Color(0xFF9E9E9E), Color(0xFF9F9F9F))
+    } else {
+        gradientColors
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -124,7 +150,7 @@ fun VolumeButton(
             .clip(RoundedCornerShape(20.dp))
             .background(
                 Brush.linearGradient(
-                    colors = gradientColors,
+                    colors = colors,
                     start = Offset(0f, 0f),
                     end = Offset(0f, Float.POSITIVE_INFINITY)
                 )
